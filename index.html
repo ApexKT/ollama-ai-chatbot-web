@@ -492,7 +492,7 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif}
       <div class="settings-grid">
         <div class="sg">
           <label>🔑 API Key</label>
-          <input type="text" id="api-key-input" placeholder="Ollama API key..."/>
+          <input type="text" id="api-key-input" placeholder="Ollama API Key (default already set)..."/>
         </div>
         <div class="sg">
           <label>🌡 Temperature <span class="sg-val" id="temp-val">0.7</span></label>
@@ -549,10 +549,11 @@ html,body{height:100%;width:100%;overflow:hidden;font-family:'Inter',sans-serif}
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────
+
 const PROXY    = "https://corsproxy.io/?url=";
 const API_URL  = PROXY + encodeURIComponent("https://ollama.com/v1/chat/completions");
 const MOD_URL  = PROXY + encodeURIComponent("https://ollama.com/v1/models");
-const DEF_KEY  = "9c4159e43d624f12985c32e10fa11f6c.6ZpOFJvp3JDIQSKSvh4Oe2lA";
+const DEF_KEY  = "9c4159e43d624f12985c32e10fa11f6c.6ZpOFJvp3JDIQSKSvh4Oe2lA"; // Ollama Premium
 const FALLBACK = [
   "gpt-oss:20b","gpt-oss:120b","gemma3:4b","gemma3:12b","gemma3:27b","gemma4:31b",
   "qwen3-next:80b","deepseek-v3.2","deepseek-v4-flash","deepseek-v4-pro",
@@ -665,7 +666,7 @@ function fillModels(sel,list){
   list.forEach(m=>{
     const o=document.createElement("option");
     o.value=o.textContent=m;
-    if(m==="gpt-oss:20b")o.selected=true;
+    if(m==="openai/gpt-4o-mini")o.selected=true;
     sel.appendChild(o);
   });
   setStatus(LANG[lang].r);
@@ -810,12 +811,28 @@ async function sendMsg(){
   addMsg("user",txt);
   const tr=addTyping();
 
+  const key=getKey();
+  if(!key){
+    if(tr.parentNode)tr.remove();
+    addMsg("bot","Error sending message. Please try again.");
+    msgs.pop();setStatus("Error: No API key.");streaming=false;
+    document.getElementById("send-btn").disabled=false;ta.focus();return;
+  }
   try{
     const res=await fetch(API_URL,{
       method:"POST",
-      headers:{"Authorization":"Bearer "+getKey(),"Content-Type":"application/json"},
+      headers:{
+        "Authorization":"Bearer "+key,
+        "Content-Type":"application/json",
+        "HTTP-Referer": location.href,
+        "X-Title": "AI Chat"
+      },
       body:JSON.stringify({model,messages:msgs,stream:true,temperature:getTemp(),max_tokens:getTok()})
     });
+    if(!res.ok){
+      const errData=await res.json().catch(()=>({}));
+      throw new Error((errData.error&&errData.error.message||errData.message||"HTTP "+res.status)+" - Check API key in Settings.");
+    }
     const reader=res.body.getReader();
     const dec=new TextDecoder();
     let bb=null,full="",buf="";
