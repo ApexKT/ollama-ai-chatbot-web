@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
@@ -7,29 +7,27 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-    from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-  const firebaseConfig = {
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+  firebase.initializeApp({
     apiKey: "AIzaSyBb7GKq0Rm4YwBevwEXMhTtpX0j0iZialA",
     authDomain: "ollama-chatbot-6a8a1.firebaseapp.com",
     projectId: "ollama-chatbot-6a8a1",
     storageBucket: "ollama-chatbot-6a8a1.firebasestorage.app",
     messagingSenderId: "496693725680",
-    appId: "1:496693725680:web:af5d45bccd267ad9743535",
-    measurementId: "G-4KRQTB0YWZ"
-  };
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  window._auth = auth;
-  onAuthStateChanged(auth, (user) => {
+    appId: "1:496693725680:web:af5d45bccd267ad9743535"
+  });
+
+  var auth = firebase.auth();
+
+  auth.onAuthStateChanged(function(user) {
     if (user) {
       window._firebaseUser = user;
       document.getElementById("auth-screen").style.display = "none";
       document.getElementById("app-screen").style.display  = "flex";
-      const em = user.email || "";
+      var em = user.email || "";
       document.getElementById("user-avatar-text").textContent = em[0].toUpperCase();
       document.getElementById("user-email-display").textContent = em;
     } else {
@@ -38,25 +36,33 @@
       document.getElementById("app-screen").style.display  = "none";
     }
   });
-  window.fbSignUp = async () => {
-    const e = document.getElementById("a-email").value.trim();
-    const p = document.getElementById("a-pass").value;
-    const c = document.getElementById("a-confirm").value;
-    const err = document.getElementById("a-error");
+
+  function fbSignUp() {
+    var e   = document.getElementById("a-email").value.trim();
+    var p   = document.getElementById("a-pass").value;
+    var c   = document.getElementById("a-confirm").value;
+    var err = document.getElementById("a-error");
     err.textContent = "";
-    if (p !== c) { err.textContent = "Passwords do not match!"; return; }
-    try { await createUserWithEmailAndPassword(auth, e, p); }
-    catch(ex) { err.textContent = ex.message.replace("Firebase: ","").replace(/\(.*\)/,""); }
-  };
-  window.fbSignIn = async () => {
-    const e = document.getElementById("a-email").value.trim();
-    const p = document.getElementById("a-pass").value;
-    const err = document.getElementById("a-error");
+    if (!e || !p) { err.textContent = "Please enter email and password."; return; }
+    if (p !== c)  { err.textContent = "Passwords do not match!"; return; }
+    if (p.length < 6) { err.textContent = "Password must be at least 6 characters."; return; }
+    auth.createUserWithEmailAndPassword(e, p).catch(function(ex) {
+      err.textContent = ex.message.replace("Firebase: ","").replace(/\(.*\)/,"").trim();
+    });
+  }
+
+  function fbSignIn() {
+    var e   = document.getElementById("a-email").value.trim();
+    var p   = document.getElementById("a-pass").value;
+    var err = document.getElementById("a-error");
     err.textContent = "";
-    try { await signInWithEmailAndPassword(auth, e, p); }
-    catch(ex) { err.textContent = ex.message.replace("Firebase: ","").replace(/\(.*\)/,""); }
-  };
-  window.fbSignOut = async () => { await signOut(auth); };
+    if (!e || !p) { err.textContent = "Please enter email and password."; return; }
+    auth.signInWithEmailAndPassword(e, p).catch(function(ex) {
+      err.textContent = ex.message.replace("Firebase: ","").replace(/\(.*\)/,"").trim();
+    });
+  }
+
+  function fbSignOut() { auth.signOut(); }
 </script>
 
 <style>
