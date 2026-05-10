@@ -16,7 +16,6 @@
       flex-direction: column;
     }
 
-    /* ── TOP BAR ── */
     .topbar {
       display: flex;
       align-items: center;
@@ -45,7 +44,7 @@
       font-size: 0.9rem;
       cursor: pointer;
       outline: none;
-      min-width: 200px;
+      min-width: 220px;
     }
 
     .topbar select:focus { border-color: #7c5cfc; }
@@ -62,7 +61,6 @@
     }
     .topbar .clear-btn:hover { border-color: #7c5cfc; color: #c084fc; }
 
-    /* ── CHAT AREA ── */
     #chat-box {
       flex: 1;
       overflow-y: auto;
@@ -123,7 +121,6 @@
       border-top-left-radius: 4px;
     }
 
-    /* Typing dots */
     .typing-dots span {
       display: inline-block;
       width: 7px; height: 7px;
@@ -140,7 +137,6 @@
       40%           { transform: translateY(-8px); }
     }
 
-    /* ── INPUT BAR ── */
     .input-bar {
       display: flex;
       align-items: flex-end;
@@ -191,47 +187,40 @@
     #send-btn:active { transform: scale(0.95); }
     #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Welcome message */
     .welcome {
       text-align: center;
-      color: #444;
       margin: auto;
       padding: 40px 20px;
     }
     .welcome h2 { font-size: 2rem; color: #7c5cfc; margin-bottom: 8px; }
     .welcome p  { font-size: 1rem; color: #555; }
 
-    /* Status bar */
     #status-bar {
       text-align: center;
       font-size: 0.78rem;
-      color: #444;
-      padding: 4px;
+      color: #555;
+      padding: 5px;
       background: #0f0f1a;
     }
   </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
-  <div class="brand">⚡ Ollama AI Chat</div>
-  <select id="model-select"><option>Loading models...</option></select>
-  <button class="clear-btn" onclick="clearChat()">🗑 Clear Chat</button>
+  <div class="brand">&#9889; Ollama AI Chat</div>
+  <select id="model-select"></select>
+  <button class="clear-btn" onclick="clearChat()">&#128465; Clear Chat</button>
 </div>
 
-<!-- CHAT BOX -->
 <div id="chat-box">
   <div class="welcome" id="welcome-msg">
-    <h2>Hello! 👋</h2>
+    <h2>Hello! &#128075;</h2>
     <p>Select a model above and start chatting with Ollama AI.</p>
   </div>
 </div>
 
-<!-- STATUS BAR -->
 <div id="status-bar">Ready</div>
 
-<!-- INPUT BAR -->
 <div style="background:#0f0f1a; padding: 0 0 8px 0;">
   <div class="input-bar">
     <textarea id="user-input" rows="1" placeholder="Type your message... (Enter to send, Shift+Enter for new line)"></textarea>
@@ -240,38 +229,63 @@
 </div>
 
 <script>
-  // ─── CONFIG ────────────────────────────────────────────────
+  // ─── CONFIG ───────────────────────────────────────────────────
   const API_KEY  = "9c4159e43d624f12985c32e10fa11f6c.6ZpOFJvp3JDIQSKSvh4Oe2lA";
-  const API_URL  = "https://ollama.com/v1/chat/completions";
-  const MODELS_URL = "https://ollama.com/v1/models";
+  const PROXY    = "https://corsproxy.io/?url=";
+  const API_URL  = PROXY + encodeURIComponent("https://ollama.com/v1/chat/completions");
+  const MODELS_URL = PROXY + encodeURIComponent("https://ollama.com/v1/models");
+
+  // ─── Hardcoded model list (fallback) ──────────────────────────
+  const FALLBACK_MODELS = [
+    "gpt-oss:20b","gpt-oss:120b","llama3.2","llama3.1",
+    "gemma3:4b","gemma3:12b","gemma3:27b",
+    "qwen3-next:80b","deepseek-v3.2","deepseek-v4-flash","deepseek-v4-pro",
+    "mistral-large-3:675b","kimi-k2.5","kimi-k2.6","kimi-k2-thinking",
+    "glm-4.6","glm-4.7","glm-5","glm-5.1",
+    "devstral-small-2:24b","devstral-2:123b",
+    "ministral-3:3b","ministral-3:8b","ministral-3:14b",
+    "nemotron-3-nano:30b","nemotron-3-super",
+    "minimax-m2","minimax-m2.1","minimax-m2.5","minimax-m2.7",
+    "cogito-2.1:671b","gemma4:31b","rnj-1:8b",
+    "qwen3-coder:480b","qwen3-coder-next","qwen3-vl:235b","qwen3-vl:235b-instruct","qwen3.5:397b",
+    "gemini-3-flash-preview"
+  ];
 
   let messages = [
     { role: "system", content: "You are a helpful and friendly AI assistant. Answer clearly and helpfully." }
   ];
   let isStreaming = false;
 
-  // ── Load Models ──────────────────────────────────────────────
+  // ── Load Models ───────────────────────────────────────────────
   async function loadModels() {
     const sel = document.getElementById("model-select");
+    sel.innerHTML = "<option>Loading...</option>";
     try {
       const res = await fetch(MODELS_URL, {
-        headers: { "Authorization": `Bearer ${API_KEY}` }
+        headers: { "Authorization": "Bearer " + API_KEY }
       });
       const data = await res.json();
-      sel.innerHTML = "";
-      data.data.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.id;
-        if (m.id === "gpt-oss:20b") opt.selected = true;
-        sel.appendChild(opt);
-      });
-      setStatus("✅ Models loaded! Ready to chat.");
+      const modelIds = data.data.map(m => m.id);
+      populateModels(sel, modelIds);
+      setStatus("Models loaded! Ready to chat.");
     } catch (e) {
-      sel.innerHTML = "<option value='gpt-oss:20b'>gpt-oss:20b</option>";
-      setStatus("⚠️ Could not load model list. Using default.");
+      // Use fallback list
+      populateModels(sel, FALLBACK_MODELS);
+      setStatus("Ready to chat!");
     }
   }
+
+  function populateModels(sel, list) {
+    sel.innerHTML = "";
+    list.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      if (m === "gpt-oss:20b") opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
   loadModels();
 
   function setStatus(msg) {
@@ -299,11 +313,11 @@
 
     const box = document.getElementById("chat-box");
     const row = document.createElement("div");
-    row.className = `msg-row ${role}`;
+    row.className = "msg-row " + role;
 
     const avatar = document.createElement("div");
     avatar.className = "avatar";
-    avatar.textContent = role === "user" ? "🧑" : "🤖";
+    avatar.textContent = role === "user" ? "U" : "AI";
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
@@ -316,7 +330,7 @@
     return bubble;
   }
 
-  // ── Typing indicator ─────────────────────────────────────────
+  // ── Typing indicator ──────────────────────────────────────────
   function addTyping() {
     const welcome = document.getElementById("welcome-msg");
     if (welcome) welcome.remove();
@@ -328,7 +342,7 @@
 
     const avatar = document.createElement("div");
     avatar.className = "avatar";
-    avatar.textContent = "🤖";
+    avatar.textContent = "AI";
 
     const bubble = document.createElement("div");
     bubble.className = "bubble typing-dots";
@@ -341,7 +355,7 @@
     return row;
   }
 
-  // ── Send Message ─────────────────────────────────────────────
+  // ── Send Message ──────────────────────────────────────────────
   async function sendMessage() {
     if (isStreaming) return;
 
@@ -354,7 +368,7 @@
     input.style.height = "auto";
     isStreaming = true;
     document.getElementById("send-btn").disabled = true;
-    setStatus("🤖 AI is thinking...");
+    setStatus("AI is thinking...");
 
     messages.push({ role: "user", content: message });
     addMessage("user", message);
@@ -364,7 +378,7 @@
       const response = await fetch(API_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${API_KEY}`,
+          "Authorization": "Bearer " + API_KEY,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -379,13 +393,15 @@
       const decoder = new TextDecoder();
       let botBubble = null;
       let fullText  = "";
+      let buffer    = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text  = decoder.decode(value);
-        const lines = text.split("\n");
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
@@ -393,7 +409,7 @@
             if (chunk === "[DONE]") break;
             try {
               const data  = JSON.parse(chunk);
-              const delta = data.choices[0].delta.content || "";
+              const delta = (data.choices[0].delta.content) || "";
               if (delta) {
                 if (!botBubble) {
                   typingRow.remove();
@@ -410,15 +426,14 @@
 
       if (typingRow.parentNode) typingRow.remove();
       if (!botBubble) addMessage("bot", "(No response)");
-
       messages.push({ role: "assistant", content: fullText });
-      setStatus("✅ Ready");
+      setStatus("Ready");
 
     } catch (e) {
       typingRow.remove();
-      addMessage("bot", "❌ Error: " + e.message);
+      addMessage("bot", "Error: " + e.message);
       messages.pop();
-      setStatus("❌ Error occurred.");
+      setStatus("Error occurred.");
     }
 
     isStreaming = false;
@@ -426,7 +441,7 @@
     input.focus();
   }
 
-  // ── Clear Chat ───────────────────────────────────────────────
+  // ── Clear Chat ────────────────────────────────────────────────
   function clearChat() {
     messages = [
       { role: "system", content: "You are a helpful and friendly AI assistant. Answer clearly and helpfully." }
@@ -434,10 +449,10 @@
     const box = document.getElementById("chat-box");
     box.innerHTML = `
       <div class="welcome" id="welcome-msg">
-        <h2>Hello! 👋</h2>
+        <h2>Hello! &#128075;</h2>
         <p>Select a model above and start chatting with Ollama AI.</p>
       </div>`;
-    setStatus("🗑 Chat cleared. Ready!");
+    setStatus("Chat cleared. Ready!");
   }
 </script>
 </body>
